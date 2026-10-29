@@ -7,6 +7,10 @@ public class BlockCoin : MonoBehaviour
     {
         GameManager.Instance.AddCoin();
 
+        if (AudioManager.Instance != null) {
+            AudioManager.Instance.PlaySfx(Sfx.Coin);
+        }
+
         StartCoroutine(Animate());
     }
 

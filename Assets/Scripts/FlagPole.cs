@@ -7,13 +7,15 @@ public class FlagPole : MonoBehaviour
     public Transform poleBottom;
     public Transform castle;
     public float speed = 6f;
-    public int nextWorld = 1;
-    public int nextStage = 1;
 
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (other.CompareTag("Player"))
         {
+            if (AudioManager.Instance != null) {
+                AudioManager.Instance.PlaySfx(Sfx.Flag);
+            }
+
             StartCoroutine(MoveTo(flag, poleBottom.position));
             StartCoroutine(LevelCompleteSequence(other.transform));
         }
@@ -21,18 +23,25 @@ public class FlagPole : MonoBehaviour
 
     private IEnumerator LevelCompleteSequence(Transform player)
     {
-        player.GetComponent<PlayerMovement>().enabled = false;
+        PlayerMovement movement = player.GetComponent<PlayerMovement>();
+
+        if (movement != null) {
+            movement.enabled = false;
+        }
 
         yield return MoveTo(player, poleBottom.position);
         yield return MoveTo(player, player.position + Vector3.right);
         yield return MoveTo(player, player.position + Vector3.right + Vector3.down);
-        yield return MoveTo(player, castle.position);
+
+        if (castle != null) {
+            yield return MoveTo(player, castle.position);
+        }
 
         player.gameObject.SetActive(false);
 
-        yield return new WaitForSeconds(2f);
-
-        GameManager.Instance.LoadLevel(nextWorld, nextStage);
+        if (GameManager.Instance != null) {
+            GameManager.Instance.CompleteLevel();
+        }
     }
 
     private IEnumerator MoveTo(Transform subject, Vector3 position)

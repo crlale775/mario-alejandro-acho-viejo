@@ -7,8 +7,12 @@ public class DeathBarrier : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
+            if (AudioManager.Instance != null) {
+                AudioManager.Instance.PlaySfx(Sfx.Death);
+            }
+
             other.gameObject.SetActive(false);
-            GameManager.Instance.ResetLevel(3f);
+            GameManager.Instance.ResetLevel(2f);
         }
         else
         {

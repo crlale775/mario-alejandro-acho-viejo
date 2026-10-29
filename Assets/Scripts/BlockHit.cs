@@ -33,6 +33,10 @@ public class BlockHit : MonoBehaviour
             Instantiate(item, transform.position, Quaternion.identity);
         }
 
+        if (AudioManager.Instance != null) {
+            AudioManager.Instance.PlaySfx(Sfx.Bump);
+        }
+
         StartCoroutine(Animate());
     }
 

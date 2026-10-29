@@ -9,6 +9,7 @@ public class PlayerMovement : MonoBehaviour
 
     private Vector2 velocity;
     private float inputAxis;
+    private float swimSfxCooldown;
 
     public float moveSpeed = 8f;
     public float maxJumpHeight = 5f;
@@ -16,11 +17,14 @@ public class PlayerMovement : MonoBehaviour
     public float jumpForce => (2f * maxJumpHeight) / (maxJumpTime / 2f);
     public float gravity => (-2f * maxJumpHeight) / Mathf.Pow(maxJumpTime / 2f, 2f);
 
+    public bool swimming { get; private set; }
     public bool grounded { get; private set; }
     public bool jumping { get; private set; }
     public bool running => Mathf.Abs(velocity.x) > 0.25f || Mathf.Abs(inputAxis) > 0.25f;
     public bool sliding => (inputAxis > 0f && velocity.x < 0f) || (inputAxis < 0f && velocity.x > 0f);
     public bool falling => velocity.y < 0f && !grounded;
+
+    private float SwimmingMultiplier => swimming ? 0.55f : 1f;
 
     private void Awake()
     {
@@ -45,9 +49,23 @@ public class PlayerMovement : MonoBehaviour
         jumping = false;
     }
 
+    public void SetSwimming(bool value)
+    {
+        swimming = value;
+    }
+
     private void Update()
     {
+        swimSfxCooldown -= Time.deltaTime;
+
         HorizontalMovement();
+
+        if (swimming)
+        {
+            SwimVertical();
+            grounded = rigidbody.Raycast(Vector2.down);
+            return;
+        }
 
         grounded = rigidbody.Raycast(Vector2.down);
 
@@ -65,9 +83,12 @@ public class PlayerMovement : MonoBehaviour
         position += velocity * Time.fixedDeltaTime;
 
         // clamp within the screen bounds
-        Vector2 leftEdge = camera.ScreenToWorldPoint(Vector2.zero);
-        Vector2 rightEdge = camera.ScreenToWorldPoint(new Vector2(Screen.width, Screen.height));
-        position.x = Mathf.Clamp(position.x, leftEdge.x + 0.5f, rightEdge.x - 0.5f);
+        if (camera != null)
+        {
+            Vector2 leftEdge = camera.ScreenToWorldPoint(Vector2.zero);
+            Vector2 rightEdge = camera.ScreenToWorldPoint(new Vector2(Screen.width, Screen.height));
+            position.x = Mathf.Clamp(position.x, leftEdge.x + 0.5f, rightEdge.x - 0.5f);
+        }
 
         rigidbody.MovePosition(position);
     }
@@ -76,7 +97,8 @@ public class PlayerMovement : MonoBehaviour
     {
         // accelerate / decelerate
         inputAxis = Input.GetAxis("Horizontal");
-        velocity.x = Mathf.MoveTowards(velocity.x, inputAxis * moveSpeed, moveSpeed * Time.deltaTime);
+        float speed = moveSpeed * SwimmingMultiplier;
+        velocity.x = Mathf.MoveTowards(velocity.x, inputAxis * speed, speed * Time.deltaTime * (swimming ? 2f : 1f));
 
         // check if running into a wall
         if (rigidbody.Raycast(Vector2.right * velocity.x)) {
@@ -102,7 +124,37 @@ public class PlayerMovement : MonoBehaviour
         {
             velocity.y = jumpForce;
             jumping = true;
+
+            if (AudioManager.Instance != null) {
+                AudioManager.Instance.PlaySfx(Sfx.Jump);
+            }
         }
+    }
+
+    /* En el agua se sube manteniendo pulsado el salto. */
+    private void SwimVertical()
+    {
+        if (Input.GetButton("Jump"))
+        {
+            velocity.y = Mathf.MoveTowards(velocity.y, maxJumpHeight, 22f * Time.deltaTime);
+            jumping = true;
+
+            if (swimSfxCooldown <= 0f)
+            {
+                swimSfxCooldown = 0.42f;
+
+                if (AudioManager.Instance != null) {
+                    AudioManager.Instance.PlaySfx(Sfx.Swim);
+                }
+            }
+        }
+        else
+        {
+            velocity.y = Mathf.MoveTowards(velocity.y, -2.2f, 14f * Time.deltaTime);
+            jumping = velocity.y > 0.1f;
+        }
+
+        velocity.y = Mathf.Max(velocity.y, -2.6f);
     }
 
     private void ApplyGravity()
@@ -114,6 +166,12 @@ public class PlayerMovement : MonoBehaviour
         // apply gravity and terminal velocity
         velocity.y += gravity * multiplier * Time.deltaTime;
         velocity.y = Mathf.Max(velocity.y, gravity / 2f);
+    }
+
+    public void Bounce()
+    {
+        velocity.y = jumpForce / 2f;
+        jumping = true;
     }
 
     private void OnCollisionEnter2D(Collision2D collision)

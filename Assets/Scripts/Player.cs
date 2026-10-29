@@ -13,6 +13,7 @@ public class Player : MonoBehaviour
     public bool big => bigRenderer.enabled;
     public bool dead => deathAnimation.enabled;
     public bool starpower { get; private set; }
+    public bool invulnerable { get; private set; }
 
     private void Awake()
     {
@@ -23,14 +24,25 @@ public class Player : MonoBehaviour
 
     public void Hit()
     {
-        if (!dead && !starpower)
-        {
-            if (big) {
-                Shrink();
-            } else {
-                Death();
-            }
+        if (dead || starpower || invulnerable) {
+            return;
         }
+
+        if (big) {
+            Shrink();
+        } else {
+            Death();
+        }
+    }
+
+    /* Muerte inmediata (lava, caidas, tiempo agotado). */
+    public void Kill()
+    {
+        if (dead) {
+            return;
+        }
+
+        Death();
     }
 
     public void Death()
@@ -39,7 +51,19 @@ public class Player : MonoBehaviour
         bigRenderer.enabled = false;
         deathAnimation.enabled = true;
 
-        GameManager.Instance.ResetLevel(3f);
+        if (AudioManager.Instance != null) {
+            AudioManager.Instance.PlaySfx(Sfx.Death);
+        }
+
+        LevelCamera camera = Camera.main != null ? Camera.main.GetComponent<LevelCamera>() : null;
+
+        if (camera != null) {
+            camera.Shake(0.25f, 0.6f);
+        }
+
+        if (GameManager.Instance != null) {
+            GameManager.Instance.ResetLevel(3f);
+        }
     }
 
     public void Grow()
@@ -63,7 +87,13 @@ public class Player : MonoBehaviour
         capsuleCollider.size = new Vector2(1f, 1f);
         capsuleCollider.offset = new Vector2(0f, 0f);
 
+        if (AudioManager.Instance != null) {
+            AudioManager.Instance.PlaySfx(Sfx.Damage);
+        }
+
+        StopAllCoroutines();
         StartCoroutine(ScaleAnimation());
+        StartCoroutine(InvulnerabilityAnimation());
     }
 
     private IEnumerator ScaleAnimation()
@@ -87,6 +117,29 @@ public class Player : MonoBehaviour
         smallRenderer.enabled = false;
         bigRenderer.enabled = false;
         activeRenderer.enabled = true;
+    }
+
+    /* Parpadeo posterior al dano para evitar perder dos vidas seguidas. */
+    private IEnumerator InvulnerabilityAnimation()
+    {
+        invulnerable = true;
+
+        float elapsed = 0f;
+        float duration = 1.6f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+
+            if (Time.frameCount % 6 == 0) {
+                activeRenderer.spriteRenderer.enabled = !activeRenderer.spriteRenderer.enabled;
+            }
+
+            yield return null;
+        }
+
+        activeRenderer.spriteRenderer.enabled = true;
+        invulnerable = false;
     }
 
     public void Starpower()

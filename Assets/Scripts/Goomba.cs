@@ -11,7 +11,7 @@ public class Goomba : MonoBehaviour
             Player player = collision.gameObject.GetComponent<Player>();
 
             if (player.starpower) {
-                Hit();
+                Hit(true);
             } else if (collision.transform.DotTest(transform, Vector2.down)) {
                 Flatten();
             } else {
@@ -23,7 +23,7 @@ public class Goomba : MonoBehaviour
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (other.gameObject.layer == LayerMask.NameToLayer("Shell")) {
-            Hit();
+            Hit(true);
         }
     }
 
@@ -34,13 +34,29 @@ public class Goomba : MonoBehaviour
         GetComponent<AnimatedSprite>().enabled = false;
         GetComponent<SpriteRenderer>().sprite = flatSprite;
         Destroy(gameObject, 0.5f);
+
+        if (AudioManager.Instance != null) {
+            AudioManager.Instance.PlaySfx(Sfx.Stomp);
+        }
+
+        if (GameManager.Instance != null) {
+            GameManager.Instance.AddScore(100);
+        }
     }
 
-    private void Hit()
+    private void Hit(bool scored)
     {
         GetComponent<AnimatedSprite>().enabled = false;
         GetComponent<DeathAnimation>().enabled = true;
         Destroy(gameObject, 3f);
+
+        if (AudioManager.Instance != null) {
+            AudioManager.Instance.PlaySfx(Sfx.Stomp);
+        }
+
+        if (scored && GameManager.Instance != null) {
+            GameManager.Instance.AddScore(200);
+        }
     }
 
 }
